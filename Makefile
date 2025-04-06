@@ -1,2 +1,2 @@
 build:
-	go build cmd/converter/main.go
+	go build -o converter cmd/converter/main.go

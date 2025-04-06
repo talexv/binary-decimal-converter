@@ -11,10 +11,10 @@ func main() {
 	const lenArgs = 3
 
 	if len(os.Args) != lenArgs {
-		fmt.Println("Формат использования: <имя программы> <режим> <число>")
-		fmt.Println("Режимы: 'b' - конвертировать бинарное число, 'd' - конвертировать десятичное число")
+		fmt.Fprintln(os.Stderr, "Формат использования: <имя программы> <режим> <число>")
+		fmt.Fprintln(os.Stderr, "Режимы: 'b' - конвертировать бинарное число, 'd' - конвертировать десятичное число")
 
-		return
+		os.Exit(1)
 	}
 
 	mode := os.Args[1]
@@ -24,24 +24,24 @@ func main() {
 	case "b":
 		decimal, err := binaryToDecimal(input)
 		if err != nil {
-			fmt.Println(err)
-			return
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
 		}
 
-		fmt.Printf("Бинарное %s в десятичной системе: %d\n", input, decimal)
+		fmt.Fprintf(os.Stdout, "Бинарное %s в десятичной системе: %d\n", input, decimal)
 
 	case "d":
-		decimal, err := strconv.Atoi(input)
-		if err != nil || decimal < 0 {
-			fmt.Println("error: ожидается целое число >= 0")
-			return
+		binary, err := decimalToBinary(input)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
 		}
 
-		binary := decimalToBinary(decimal)
-		fmt.Printf("Число %d в двоичной системе: %s\n", decimal, binary)
+		fmt.Fprintf(os.Stdout, "Число %s в двоичной системе: %s\n", input, binary)
 
 	default:
-		fmt.Println("error: ожидается режим 'b' или 'd'")
+		fmt.Fprintln(os.Stderr, "error: ожидается режим 'b' или 'd'")
+		os.Exit(1)
 	}
 }
 
@@ -51,6 +51,7 @@ func binaryToDecimal(binary string) (int, error) {
 
 	for i := len(binary) - 1; i >= 0; i-- {
 		if binary[i] != '0' && binary[i] != '1' {
+			// return -1, fmt.Errorf("%w: ожидается бинарное число", os.ErrInvalid)
 			return -1, errors.New("error: ожидается бинарное число")
 		}
 
@@ -64,20 +65,26 @@ func binaryToDecimal(binary string) (int, error) {
 	return decimal, nil
 }
 
-func decimalToBinary(decimal int) string {
-	if decimal == 0 {
-		return "0"
+func decimalToBinary(decimal string) (string, error) {
+	num, err := strconv.Atoi(decimal)
+	if err != nil || num < 0 {
+		// return "", fmt.Errorf("%w: ожидается целое число >= 0", os.ErrInvalid)
+		return "", errors.New("error: ожидается целое число >= 0")
+	}
+
+	if num == 0 {
+		return "0", nil
 	}
 
 	const base = 2
 
 	binary := ""
 
-	for decimal > 0 {
-		bit := decimal % base
+	for num > 0 {
+		bit := num % base
 		binary = string('0'+rune(bit)) + binary
-		decimal /= base
+		num /= base
 	}
 
-	return binary
+	return binary, nil
 }
