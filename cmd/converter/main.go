@@ -28,7 +28,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		fmt.Fprintf(os.Stdout, "Бинарное %s в десятичной системе: %d\n", input, decimal)
+		fmt.Fprintf(os.Stdout, "Бинарное %s в десятичной системе: %s\n", input, decimal)
 
 	case "d":
 		binary, err := decimalToBinary(input)
@@ -45,14 +45,13 @@ func main() {
 	}
 }
 
-func binaryToDecimal(binary string) (int, error) {
+func binaryToDecimal(binary string) (string, error) {
 	decimal := 0
 	binaryWeight := 1
 
 	for i := len(binary) - 1; i >= 0; i-- {
 		if binary[i] != '0' && binary[i] != '1' {
-			// return -1, fmt.Errorf("%w: ожидается бинарное число", os.ErrInvalid)
-			return -1, errors.New("error: ожидается бинарное число")
+			return "", errors.New("error: ожидается бинарное число")
 		}
 
 		if binary[i] == '1' {
@@ -62,13 +61,12 @@ func binaryToDecimal(binary string) (int, error) {
 		binaryWeight *= 2
 	}
 
-	return decimal, nil
+	return strconv.Itoa(decimal), nil
 }
 
 func decimalToBinary(decimal string) (string, error) {
 	num, err := strconv.Atoi(decimal)
 	if err != nil || num < 0 {
-		// return "", fmt.Errorf("%w: ожидается целое число >= 0", os.ErrInvalid)
 		return "", errors.New("error: ожидается целое число >= 0")
 	}
 
