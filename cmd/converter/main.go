@@ -3,45 +3,101 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
+
+	"github.com/urfave/cli/v2"
 )
 
+// func main() {
+// 	const lenArgs = 3
+
+// 	if len(os.Args) != lenArgs {
+// 		fmt.Fprintln(os.Stderr, "Формат использования: <имя программы> <режим> <число>")
+// 		fmt.Fprintln(os.Stderr, "Режимы: 'b' - конвертировать бинарное число, 'd' - конвертировать десятичное число")
+
+// 		os.Exit(1)
+// 	}
+
+// 	mode := os.Args[1]
+// 	input := os.Args[2]
+
+// 	switch mode {
+// 	case "b":
+// 		decimal, err := binaryToDecimal(input)
+// 		if err != nil {
+// 			fmt.Fprintln(os.Stderr, err)
+// 			os.Exit(1)
+// 		}
+
+// 		fmt.Fprintf(os.Stdout, "Бинарное %s в десятичной системе: %s\n", input, decimal)
+
+// 	case "d":
+// 		binary, err := decimalToBinary(input)
+// 		if err != nil {
+// 			fmt.Fprintln(os.Stderr, err)
+// 			os.Exit(1)
+// 		}
+
+// 		fmt.Fprintf(os.Stdout, "Число %s в двоичной системе: %s\n", input, binary)
+
+// 	default:
+// 		fmt.Fprintln(os.Stderr, "error: ожидается режим 'b' или 'd'")
+// 		os.Exit(1)
+// 	}
+// }
+
 func main() {
-	const lenArgs = 3
+	app := &cli.App{
+		Name:      "converter",
+		Usage:     "Конвертирует числа между бинарной и десятичной систем счисления",
+		ArgsUsage: "arguments...",
+		Commands: []*cli.Command{
+			{
+				Name:      "binary",
+				Aliases:   []string{"b"},
+				Usage:     "Конвертирует бинарное число в десятичное",
+				ArgsUsage: "<бинарное число>",
+				Action: func(cCtx *cli.Context) error {
+					if cCtx.NArg() != 1 {
+						return cli.Exit("Ожидается 1 аргумент - <бинарное число>", 1)
+					}
+					input := cCtx.Args().Get(0)
+					decimal, err := binaryToDecimal(input)
+					if err != nil {
+						return cli.Exit(err, 1)
+					}
 
-	if len(os.Args) != lenArgs {
-		fmt.Fprintln(os.Stderr, "Формат использования: <имя программы> <режим> <число>")
-		fmt.Fprintln(os.Stderr, "Режимы: 'b' - конвертировать бинарное число, 'd' - конвертировать десятичное число")
+					fmt.Printf("Бинарное %s в десятичной системе: %s\n", input, decimal)
+					return nil
+				},
+			},
+			{
+				Name:      "decimal",
+				Aliases:   []string{"d"},
+				Usage:     "Конвертирует десятичное число в бинарное",
+				ArgsUsage: "<десятичное число>",
+				Action: func(cCtx *cli.Context) error {
+					if cCtx.NArg() != 1 {
+						return cli.Exit("Ожидается 1 аргумент - <десятичное число>", 1)
+					}
+					input := cCtx.Args().Get(0)
+					binary, err := decimalToBinary(input)
+					if err != nil {
+						return cli.Exit(err, 1)
+					}
 
-		os.Exit(1)
+					fmt.Printf("Число %s в двоичной системе: %s\n", input, binary)
+					return nil
+				},
+			},
+		},
 	}
 
-	mode := os.Args[1]
-	input := os.Args[2]
-
-	switch mode {
-	case "b":
-		decimal, err := binaryToDecimal(input)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-
-		fmt.Fprintf(os.Stdout, "Бинарное %s в десятичной системе: %s\n", input, decimal)
-
-	case "d":
-		binary, err := decimalToBinary(input)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-
-		fmt.Fprintf(os.Stdout, "Число %s в двоичной системе: %s\n", input, binary)
-
-	default:
-		fmt.Fprintln(os.Stderr, "error: ожидается режим 'b' или 'd'")
-		os.Exit(1)
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Fatal(err)
 	}
 }
 
