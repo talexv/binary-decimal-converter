@@ -10,44 +10,6 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// func main() {
-// 	const lenArgs = 3
-
-// 	if len(os.Args) != lenArgs {
-// 		fmt.Fprintln(os.Stderr, "Формат использования: <имя программы> <режим> <число>")
-// 		fmt.Fprintln(os.Stderr, "Режимы: 'b' - конвертировать бинарное число, 'd' - конвертировать десятичное число")
-
-// 		os.Exit(1)
-// 	}
-
-// 	mode := os.Args[1]
-// 	input := os.Args[2]
-
-// 	switch mode {
-// 	case "b":
-// 		decimal, err := binaryToDecimal(input)
-// 		if err != nil {
-// 			fmt.Fprintln(os.Stderr, err)
-// 			os.Exit(1)
-// 		}
-
-// 		fmt.Fprintf(os.Stdout, "Бинарное %s в десятичной системе: %s\n", input, decimal)
-
-// 	case "d":
-// 		binary, err := decimalToBinary(input)
-// 		if err != nil {
-// 			fmt.Fprintln(os.Stderr, err)
-// 			os.Exit(1)
-// 		}
-
-// 		fmt.Fprintf(os.Stdout, "Число %s в двоичной системе: %s\n", input, binary)
-
-// 	default:
-// 		fmt.Fprintln(os.Stderr, "error: ожидается режим 'b' или 'd'")
-// 		os.Exit(1)
-// 	}
-// }
-
 func main() {
 	app := &cli.App{
 		Name:      "converter",
