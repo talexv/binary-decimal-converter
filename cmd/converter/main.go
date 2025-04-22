@@ -20,6 +20,16 @@ var charToValue = map[rune]int{
 	'C': 12, 'D': 13, 'E': 14, 'F': 15,
 }
 
+//nolint:gochecknoglobals // will be considered
+var valueToChar = func() map[int]rune {
+	m := make(map[int]rune, len(charToValue))
+	for k, v := range charToValue {
+		m[v] = k
+	}
+
+	return m
+}()
+
 func isValidBase(base int) bool {
 	return base == 2 || base == 8 || base == 10 || base == 16
 }
@@ -59,12 +69,6 @@ func convertFromDecimal(decimal int, toBase string) (string, error) {
 
 	result := ""
 
-	valueToChar := make(map[int]rune, len(charToValue))
-
-	for k, v := range charToValue {
-		valueToChar[v] = k
-	}
-
 	for decimal > 0 {
 		remainder := decimal % base
 		char := valueToChar[remainder]
@@ -89,6 +93,10 @@ func convert(numberStr, fromBase, toBase string) (string, error) {
 	return result, nil
 }
 
+func printConverted(numberStr, fromBase, result, toBase string) {
+	fmt.Printf("%s (%s) --> %s (%s)\n", numberStr, fromBase, result, toBase)
+}
+
 func convertFromStdin(fromBase, toBase string) error {
 	fmt.Println("Ожидаются числа через пробел или Enter. Завершить Ctrl+Z")
 
@@ -109,7 +117,7 @@ func convertFromStdin(fromBase, toBase string) error {
 			return err
 		}
 
-		fmt.Printf("%s (%s) --> %s (%s)\n", numStr, fromBase, result, toBase)
+		printConverted(numStr, fromBase, result, toBase)
 	}
 
 	return nil
@@ -138,22 +146,22 @@ func main() {
 			toBase := cCtx.String("to")
 			args := cCtx.Args().Slice()
 
-			if len(args) > 0 {
-				for _, numStr := range args {
-					result, err := convert(numStr, fromBase, toBase)
-					if err != nil {
-						return cli.Exit(err, 1)
-					}
-
-					fmt.Printf("%s (%s) --> %s (%s)\n", numStr, fromBase, result, toBase)
+			if len(args) == 0 {
+				err := convertFromStdin(fromBase, toBase)
+				if err != nil {
+					return cli.Exit(err, 1)
 				}
 
 				return nil
 			}
 
-			err := convertFromStdin(fromBase, toBase)
-			if err != nil {
-				return cli.Exit(err, 1)
+			for _, numStr := range args {
+				result, err := convert(numStr, fromBase, toBase)
+				if err != nil {
+					return cli.Exit(err, 1)
+				}
+
+				printConverted(numStr, fromBase, result, toBase)
 			}
 
 			return nil
