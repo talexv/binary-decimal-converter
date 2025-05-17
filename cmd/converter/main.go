@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/urfave/cli/v2"
 )
@@ -93,8 +95,8 @@ func convert(numberStr, fromBase, toBase string) (string, error) {
 	return result, nil
 }
 
-func printConverted(numberStr, fromBase, result, toBase string) {
-	fmt.Printf("%s (%s) --> %s (%s)\n", numberStr, fromBase, result, toBase)
+func printConverted(w io.Writer, numberStr, fromBase, result, toBase string) {
+	fmt.Fprintf(w, "%s (%s) --> %s (%s)\n", numberStr, fromBase, result, toBase)
 }
 
 func convertFromStdin(fromBase, toBase string) error {
@@ -117,13 +119,71 @@ func convertFromStdin(fromBase, toBase string) error {
 			return err
 		}
 
-		printConverted(numStr, fromBase, result, toBase)
+		printConverted(os.Stdout, numStr, fromBase, result, toBase)
 	}
 
 	return nil
 }
 
+//nolint:gochecknoglobals // will be considered
+var convertForm = `
+	<form action="/convert" method="POST">
+		<input name="number" placeholder="Число">
+		<input name="from" placeholder="Из системы">
+		<input name="to" placeholder="В систему">
+		<button type="submit">Конвертировать</button>
+	</form>
+`
+
+func convertHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	switch r.Method {
+	case http.MethodGet:
+		fmt.Fprint(w, convertForm)
+
+	case http.MethodPost:
+		err := r.ParseForm()
+		if err != nil {
+			http.Error(w, "Ошибка при разборе формы", http.StatusBadRequest)
+			return
+		}
+
+		number := r.FormValue("number")
+		fromBase := r.FormValue("from")
+		toBase := r.FormValue("to")
+
+		result, err := convert(number, fromBase, toBase)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		printConverted(w, number, fromBase, result, toBase)
+		fmt.Fprint(w, convertForm)
+	}
+}
+
+//nolint:mnd // will be considered
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "http" {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/convert", convertHandler)
+
+		server := http.Server{
+			Addr:              ":8080",
+			Handler:           mux,
+			ReadHeaderTimeout: 5 * time.Second,
+		}
+
+		fmt.Println("HTTP сервер запущен на http://localhost:8080")
+
+		err := server.ListenAndServe()
+		if err != nil {
+			log.Fatalf("Ошибка запуска HTTP сервера: %v", err)
+		}
+	}
+
 	app := &cli.App{
 		Name:  "converter",
 		Usage: "Конвертирует числа между системами счисления",
@@ -161,7 +221,7 @@ func main() {
 					return cli.Exit(err, 1)
 				}
 
-				printConverted(numStr, fromBase, result, toBase)
+				printConverted(os.Stdout, numStr, fromBase, result, toBase)
 			}
 
 			return nil
