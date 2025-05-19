@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/urfave/cli/v2"
 )
@@ -30,6 +32,8 @@ var valueToChar = func() map[int]rune {
 	return m
 }()
 
+var ErrBadInput = errors.New("ошибка во входных данных")
+
 func isValidBase(base int) bool {
 	return base == 2 || base == 8 || base == 10 || base == 16
 }
@@ -41,13 +45,13 @@ func convertToDecimal(numberStr, fromBase string) (int, error) {
 
 	base, err := strconv.Atoi(fromBase)
 	if err != nil || !isValidBase(base) {
-		return -1, errors.New("error: поддерживаются только '2, 8, 10, 16' системы")
+		return -1, fmt.Errorf("%w: поддерживаются только '2, 8, 10, 16' системы", ErrBadInput)
 	}
 
 	for i := len(numberStr) - 1; i >= 0; i-- {
 		val, ok := charToValue[rune(numberStr[i])]
 		if !ok || val >= base {
-			return -1, fmt.Errorf("error: Недопустимый символ '%c' для системы '%s'", numberStr[i], fromBase)
+			return -1, fmt.Errorf("%w: недопустимый символ '%c' для системы '%s'", ErrBadInput, numberStr[i], fromBase)
 		}
 
 		decimal += val * posWeight
@@ -64,7 +68,7 @@ func convertFromDecimal(decimal int, toBase string) (string, error) {
 
 	base, err := strconv.Atoi(toBase)
 	if err != nil || !isValidBase(base) {
-		return "", errors.New("error: поддерживаются только '2, 8, 10, 16' системы")
+		return "", fmt.Errorf("%w: поддерживаются только '2, 8, 10, 16' системы", ErrBadInput)
 	}
 
 	result := ""
@@ -93,8 +97,9 @@ func convert(numberStr, fromBase, toBase string) (string, error) {
 	return result, nil
 }
 
-func printConverted(numberStr, fromBase, result, toBase string) {
-	fmt.Printf("%s (%s) --> %s (%s)\n", numberStr, fromBase, result, toBase)
+func printConverted(w io.Writer, numberStr, fromBase, result, toBase string) error {
+	_, err := fmt.Fprintf(w, "%s (%s) --> %s (%s)\n", numberStr, fromBase, result, toBase)
+	return err
 }
 
 func convertFromStdin(fromBase, toBase string) error {
@@ -117,13 +122,87 @@ func convertFromStdin(fromBase, toBase string) error {
 			return err
 		}
 
-		printConverted(numStr, fromBase, result, toBase)
+		err = printConverted(os.Stdout, numStr, fromBase, result, toBase)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
+//nolint:gochecknoglobals // will be considered
+var convertForm = `
+	<form action="/convert" method="POST">
+		<input name="number" placeholder="Число">
+		<input name="from" placeholder="Из системы">
+		<input name="to" placeholder="В систему">
+		<button type="submit">Конвертировать</button>
+	</form>
+`
+
+func convertHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	switch r.Method {
+	case http.MethodGet:
+		fmt.Fprint(w, convertForm)
+
+	case http.MethodPost:
+		err := r.ParseForm()
+		if err != nil {
+			http.Error(w, "Ошибка при разборе формы", http.StatusBadRequest)
+			return
+		}
+
+		number := r.FormValue("number")
+		fromBase := r.FormValue("from")
+		toBase := r.FormValue("to")
+
+		result, err := convert(number, fromBase, toBase)
+		if err != nil {
+			if errors.Is(err, ErrBadInput) {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+			} else {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+
+			return
+		}
+
+		err = printConverted(w, number, fromBase, result, toBase)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		fmt.Fprint(w, convertForm)
+	}
+}
+
+const (
+	DefaultTimeout = 5 * time.Second
+)
+
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "http" {
+		mux := http.NewServeMux()
+		mux.HandleFunc("/convert", convertHandler)
+
+		server := http.Server{
+			Addr:              ":8080",
+			Handler:           mux,
+			ReadHeaderTimeout: DefaultTimeout,
+		}
+
+		fmt.Println("HTTP сервер запущен на http://localhost:8080")
+
+		err := server.ListenAndServe()
+		if err != nil {
+			log.Fatalf("Ошибка запуска HTTP сервера: %v", err)
+		}
+	}
+
 	app := &cli.App{
 		Name:  "converter",
 		Usage: "Конвертирует числа между системами счисления",
@@ -161,7 +240,10 @@ func main() {
 					return cli.Exit(err, 1)
 				}
 
-				printConverted(numStr, fromBase, result, toBase)
+				err = printConverted(os.Stdout, numStr, fromBase, result, toBase)
+				if err != nil {
+					return cli.Exit(err, 1)
+				}
 			}
 
 			return nil
