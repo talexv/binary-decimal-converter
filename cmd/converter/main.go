@@ -180,7 +180,10 @@ func convertHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-//nolint:mnd // will be considered
+const (
+	DefaultTimeout = 5 * time.Second
+)
+
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "http" {
 		mux := http.NewServeMux()
@@ -189,7 +192,7 @@ func main() {
 		server := http.Server{
 			Addr:              ":8080",
 			Handler:           mux,
-			ReadHeaderTimeout: 5 * time.Second,
+			ReadHeaderTimeout: DefaultTimeout,
 		}
 
 		fmt.Println("HTTP сервер запущен на http://localhost:8080")
