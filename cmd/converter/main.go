@@ -32,6 +32,8 @@ var valueToChar = func() map[int]rune {
 	return m
 }()
 
+var ErrBadInput = errors.New("ошибка во входных данных")
+
 func isValidBase(base int) bool {
 	return base == 2 || base == 8 || base == 10 || base == 16
 }
@@ -43,13 +45,13 @@ func convertToDecimal(numberStr, fromBase string) (int, error) {
 
 	base, err := strconv.Atoi(fromBase)
 	if err != nil || !isValidBase(base) {
-		return -1, errors.New("error: поддерживаются только '2, 8, 10, 16' системы")
+		return -1, fmt.Errorf("%w: поддерживаются только '2, 8, 10, 16' системы", ErrBadInput)
 	}
 
 	for i := len(numberStr) - 1; i >= 0; i-- {
 		val, ok := charToValue[rune(numberStr[i])]
 		if !ok || val >= base {
-			return -1, fmt.Errorf("error: Недопустимый символ '%c' для системы '%s'", numberStr[i], fromBase)
+			return -1, fmt.Errorf("%w: недопустимый символ '%c' для системы '%s'", ErrBadInput, numberStr[i], fromBase)
 		}
 
 		decimal += val * posWeight
@@ -66,7 +68,7 @@ func convertFromDecimal(decimal int, toBase string) (string, error) {
 
 	base, err := strconv.Atoi(toBase)
 	if err != nil || !isValidBase(base) {
-		return "", errors.New("error: поддерживаются только '2, 8, 10, 16' системы")
+		return "", fmt.Errorf("%w: поддерживаются только '2, 8, 10, 16' системы", ErrBadInput)
 	}
 
 	result := ""
@@ -95,8 +97,9 @@ func convert(numberStr, fromBase, toBase string) (string, error) {
 	return result, nil
 }
 
-func printConverted(w io.Writer, numberStr, fromBase, result, toBase string) {
-	fmt.Fprintf(w, "%s (%s) --> %s (%s)\n", numberStr, fromBase, result, toBase)
+func printConverted(w io.Writer, numberStr, fromBase, result, toBase string) error {
+	_, err := fmt.Fprintf(w, "%s (%s) --> %s (%s)\n", numberStr, fromBase, result, toBase)
+	return err
 }
 
 func convertFromStdin(fromBase, toBase string) error {
@@ -119,7 +122,10 @@ func convertFromStdin(fromBase, toBase string) error {
 			return err
 		}
 
-		printConverted(os.Stdout, numStr, fromBase, result, toBase)
+		err = printConverted(os.Stdout, numStr, fromBase, result, toBase)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -155,11 +161,21 @@ func convertHandler(w http.ResponseWriter, r *http.Request) {
 
 		result, err := convert(number, fromBase, toBase)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			if errors.Is(err, ErrBadInput) {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+			} else {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+
 			return
 		}
 
-		printConverted(w, number, fromBase, result, toBase)
+		err = printConverted(w, number, fromBase, result, toBase)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
 		fmt.Fprint(w, convertForm)
 	}
 }
@@ -221,7 +237,10 @@ func main() {
 					return cli.Exit(err, 1)
 				}
 
-				printConverted(os.Stdout, numStr, fromBase, result, toBase)
+				err = printConverted(os.Stdout, numStr, fromBase, result, toBase)
+				if err != nil {
+					return cli.Exit(err, 1)
+				}
 			}
 
 			return nil
